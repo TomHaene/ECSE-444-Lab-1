@@ -1,0 +1,64 @@
+
+
+.global kalmanfilter_single_asm
+
+
+
+kalmanfilter_single_asm:
+	vpush {S4-S10} //Note the syntax difference when pushing a range of registers
+	push {R4, LR}
+	VLDR.F32 S1, [R0]  //q
+	VLDR.F32 S2, [R0, #4] //r
+	VLDR.F32 S3, [R0, #8]   //x
+	VLDR.F32 S4, [R0, #12]   //p
+	VLDR.F32 S5, [R0, #16]   //k
+
+@Registers used: R2, R3,
+
+VADD.F32 S4, S4, S1  @ p = p + q
+
+VADD.F32 S6, S4, S2  @ P + r
+
+VDIV.F32 S5, S4, S6 @ k = p / (p + r)
+
+VSUB.F32 S7, S0, S3 @ (measurement - x)
+
+VMUL.F32 S8, S5, S7 @ k * (measurement - x)
+
+VADD.F32 S3, S3, S8 @ x + k*(measurement - x)
+
+MOV R2, #1
+VMOV.F32 S10, R2
+VSUB.F32 S9, S10, S5 @1 - k
+
+VMUL.F32 S4, S9, S4 @ (1 - k) * p
+
+
+
+//VMRS R3, FPSCR
+@Relevant bits:
+@bits 31 - 28, bits 4 - 0
+@So check if these relevant bits are 1. If they are an error occured and result is invalid
+@Creating a bit mask to check this bits:
+//LDR R4, =0xF000001F
+//AND R4, R3, R4
+//CMP R4, #0 @
+@If these are not equal it means something went wrong:
+
+//BNE overflow_handler
+	VSTR.F32 S1, [R0]  //q
+	VSTR.F32 S2, [R0, #4] //r
+	VSTR.F32 S3, [R0, #8]   //x
+	VSTR.F32 S4, [R0, #12]   //p
+	VSTR.F32 S5, [R0, #16]   //k
+B end
+
+
+overflow_handler:
+	//Will just return 1 if error
+	MOV R0, #1
+
+end:
+
+	pop {R4, PC}
+	vpop {S4-S10}

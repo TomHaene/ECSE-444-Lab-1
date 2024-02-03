@@ -1,0 +1,13 @@
+../Drivers/CMSIS/Include/core_cm4.h:2059:26:ITM_SendChar	16	static,ignoring_inline_asm
+../Core/Src/main.c:77:5:kalmanfilter_ASM	32	static
+../Core/Src/main.c:91:5:kalmanfilter_C	4	static
+../Core/Src/main.c:104:5:Kalmanfilter_C	56	static
+../Core/Src/main.c:155:5:kalmanfilter_CMSIS_DSP	4	static
+../Core/Src/main.c:167:6:calculateDifference	32	static
+../Core/Src/main.c:174:6:calculateStats	40	static
+../Core/Src/main.c:194:7:calculateCorrelation	64	static
+../Core/Src/main.c:220:6:convolution	40	static
+../Core/Src/main.c:244:5:main	120	static
+../Core/Src/main.c:329:6:SystemClock_Config	96	static
+../Core/Src/main.c:377:5:_write	32	static
+../Core/Src/main.c:398:6:Error_Handler	4	static,ignoring_inline_asm

@@ -1,0 +1,54 @@
+11:37:29 **** Incremental Build of configuration Debug for project Lab1-Tom ****
+make -j16 all 
+arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32L4S5xx -c -I../Core/Inc -I../Drivers/STM32L4xx_HAL_Driver/Inc -I../Drivers/STM32L4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32L4xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
+../Core/Src/main.c: In function 'kalmanfilter_ASM':
+../Core/Src/main.c:80:39: warning: passing argument 1 of 'kalmanfilter_single_asm' from incompatible pointer type [-Wincompatible-pointer-types]
+   80 |      result = kalmanfilter_single_asm(myState, inputArray[i]);  // Kalman algorithm in assembly
+      |                                       ^~~~~~~
+      |                                       |
+      |                                       kalman_state *
+../Core/Src/main.c:70:41: note: expected 'int *' but argument is of type 'kalman_state *'
+   70 | extern int kalmanfilter_single_asm(int *ptr, float measurement); //The ASM subroutine
+      |                                    ~~~~~^~~
+../Core/Src/main.c: In function 'Kalmanfilter_C':
+../Core/Src/main.c:110:14: warning: variable 'fpscrValueOld' set but not used [-Wunused-but-set-variable]
+  110 |     uint32_t fpscrValueOld;
+      |              ^~~~~~~~~~~~~
+../Core/Src/main.c: In function 'main':
+../Core/Src/main.c:259:8: warning: unused variable 'diffArray' [-Wunused-variable]
+  259 |  float diffArray[5];
+      |        ^~~~~~~~~
+../Core/Src/main.c:258:8: warning: unused variable 'stdDev' [-Wunused-variable]
+  258 |  float stdDev;
+      |        ^~~~~~
+../Core/Src/main.c:257:8: warning: unused variable 'average' [-Wunused-variable]
+  257 |  float average;
+      |        ^~~~~~~
+../Core/Src/main.c:247:15: warning: variable 'myState' set but not used [-Wunused-but-set-variable]
+  247 |  kalman_state myState;
+      |               ^~~~~~~
+arm-none-eabi-gcc -o "Lab1-Tom.elf" @"objects.list"  -larm_cortexM4lf_math -mcpu=cortex-m4 -T"C:\Users\tomha\My Drive\Documents\Education\McGill-U2Winter\ECSE 444\ECSE 444 lab 1 proper\Lab1-Tom\STM32L4S5VITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Lab1-Tom.map" -Wl,--gc-sections -static -L"C:\Users\tomha\My Drive\Documents\Education\McGill-U2Winter\ECSE 444\ECSE 444 lab 1 proper\Lab1-Tom\Core\lib" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+Finished building target: Lab1-Tom.elf
+ 
+arm-none-eabi-size   Lab1-Tom.elf 
+arm-none-eabi-objdump -h -S  Lab1-Tom.elf  > "Lab1-Tom.list"
+   text	   data	    bss	    dec	    hex	filename
+  20816	    484	   1588	  22888	   5968	Lab1-Tom.elf
+Finished building: default.size.stdout
+ 
+Finished building: Lab1-Tom.list
+ 
+11:37:39 **** Incremental Build of configuration Debug for project Lab1-Tom ****
+make -j16 all 
+arm-none-eabi-size   Lab1-Tom.elf 
+   text	   data	    bss	    dec	    hex	filename
+  20816	    484	   1588	  22888	   5968	Lab1-Tom.elf
+Finished building: default.size.stdout
+ 
+11:38:05 **** Incremental Build of configuration Debug for project Lab1-Tom ****
+make -j16 all 
+arm-none-eabi-size   Lab1-Tom.elf 
+   text	   data	    bss	    dec	    hex	filename
+  20816	    484	   1588	  22888	   5968	Lab1-Tom.elf
+Finished building: default.size.stdout
+ 
