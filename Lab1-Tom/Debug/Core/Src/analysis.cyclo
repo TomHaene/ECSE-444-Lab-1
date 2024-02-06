@@ -1,0 +1,4 @@
+analysis.c:2:6:calculateDifference	2
+analysis.c:9:6:calculateStats	3
+analysis.c:29:7:calculateCorrelation	2
+analysis.c:55:6:convolution	4

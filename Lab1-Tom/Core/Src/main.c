@@ -68,6 +68,13 @@ float diffArray[5];
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 extern int kalmanfilter_single_asm(int *ptr, float measurement); //The ASM subroutine
+
+extern void calculateDifference(float* inputArray, float* outputArray, float* differenceArray, int size);
+extern void calculateStats(const float* differenceArray, int size, float *average, float *stdDev);
+extern float calculateCorrelation(const float* x, const float* y, int size);
+void convolution(const float* x, const float* h, int N, float result[]);
+
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -110,7 +117,7 @@ int Kalmanfilter_C(float* InputArray, float* OutputArray, kalman_state* kstate, 
 		  uint32_t fpscrValueOld;
 		  uint32_t fpscrValueNew;
 		  uint32_t bitmask = 0x0000000F;
-		  uint32_t resetBitmask = 0xFFFFFFF0;
+		  uint32_t resetBitmask = 0xFFFFFFE0;
 		  uint32_t result;
 
 		  for (int i = 0; i < Length; i++){
@@ -128,9 +135,9 @@ int Kalmanfilter_C(float* InputArray, float* OutputArray, kalman_state* kstate, 
 		    result = fpscrValueNew & bitmask;
 
 		    //Check if the result is non-zero
-		    //I also allow bit 16 to be set because that can happen in C but doesn't mean there was
+		    //I also allow bit 4 to be set because that can happen in C but doesn't mean there was
 		    //a exception
-		    if (result != 0 || result != 16) {
+		    if (result != 0 && result != 16) {
 
 		    	return 1;
 		    }
@@ -145,11 +152,6 @@ int Kalmanfilter_C(float* InputArray, float* OutputArray, kalman_state* kstate, 
 
 
 //--------------------------------old------------
-
-
-
-
-
 
 
 // CMSIS DSP implementation.
@@ -208,79 +210,11 @@ int Kalmanfilter_DSP(float *InputArray, float *OutputArray, kalman_state *kstate
 }
 
 
-
-
-
-void calculateDifference(float* inputArray, float* outputArray, float* differenceArray, int size){
-	for (int i = 0; i < size; i++) {
-	        differenceArray[i] = inputArray[i] - outputArray[i];
-	    }
-
+void initialize_output(float* arr, int n){
+	for (int i =0; i<n; i++){
+		arr[i] = 0.0;
+	}
 }
-
-void calculateStats(const float* differenceArray, int size, float *average, float *stdDev) {
-    float sum = 0.0, variance = 0.0;
-
-    // Calculate average
-    for (int i = 0; i < size; ++i) {
-    	sum += differenceArray[i];
-    }
-    *average = sum / size;
-
-    // Calculate variance
-    for (int i = 0; i < size; ++i) {
-        variance += (differenceArray[i] - *average) * (differenceArray[i] - *average);
-    }
-    variance /= size;
-
-    // Calculate standard deviation
-    *stdDev = sqrt(variance);
-}
-
-
-float calculateCorrelation(const float* x, const float* y, int size) {
-    float sumX = 0.0, sumY = 0.0, sumXY = 0.0;
-    float squareSumX = 0.0, squareSumY = 0.0;
-
-    for (int i = 0; i < size; ++i) {
-        // Sum of elements of array X.
-        sumX = sumX + x[i];
-
-        // Sum of elements of array Y.
-        sumY = sumY + y[i];
-
-        // Sum of X[i] * Y[i].
-        sumXY = sumXY + x[i] * y[i];
-
-        // Sum of square of array elements.
-        squareSumX = squareSumX + x[i] * x[i];
-        squareSumY = squareSumY + y[i] * y[i];
-    }
-
-    // Use correlation formula
-    float corr = (size * sumXY - sumX * sumY) /
-                 (sqrt((size * squareSumX - sumX * sumX) * (size * squareSumY - sumY * sumY)));
-    return corr;
-}
-
-
-void convolution(const float* x, int N, const float* h, int M, float result[]) {
-    int totalLength = N + M - 1; // Length of the convolution result
-
-    // Initialize result array
-    for (int i = 0; i < totalLength; ++i) {
-        result[i] = 0;
-    }
-
-    // Compute the convolution
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < M; ++j) {
-            result[i + j] += x[i] * h[j];
-        }
-    }
-}
-
-
 
 /* USER CODE END 0 */
 
@@ -291,38 +225,6 @@ void convolution(const float* x, int N, const float* h, int M, float result[]) {
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	kalman_state myState;
-	float output[5];
-
-	myState.q = 0.1;
-	myState.r = 0.1;
-	myState.p = 0.1;
-	myState.x = 5.0;
-	myState.k = 0.0;
-
-	float input[5] = {0,1,2,3,4};
-	float average;
-	float stdDev;
-	float diffArray[5];
-
-
-	kalman_state testState;
-	testState.q = 0.0;
-	testState.r = 0.0;
-	testState.p = 0.0;
-	testState.x = 5.0;
-	testState.k = 0.0;
-
-	//kalmanfilter_ASM(input, output, &myState, 5);
-	Kalmanfilter_DSP(input, output, &myState, 5);
-
-
-	//calculateDifference(input, output, diffArray, 5);
-
-
-	//Kalmanfilter_C(input, output, &testState, 5);
-
-	//kalmanfilter_ASM(input, output, &testState, 5);
 
 
   /* USER CODE END 1 */
@@ -346,6 +248,128 @@ int main(void)
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
 
+  float TEST_ARRAY[] = {10.4915760032, 10.1349974709, 9.53992591829, 9.60311878706,
+    	                    10.4858891793, 10.1104642352, 9.51066931906, 9.75755656493,
+    	                    9.82154078273, 10.2906541933, 10.4861328671, 9.57321181356,
+    	                    9.70882714139, 10.4359069357, 9.70644021369, 10.2709894039,
+    	                    10.0823149505, 10.2954563443, 9.57130449017, 9.66832136479,
+    	                    10.4521677502, 10.4287240667, 10.1833650752, 10.0066049721,
+    	                    10.3279461634, 10.4767210803, 10.3790964606, 10.1937408814,
+    	                    10.0318963522, 10.4939180917, 10.2381858895, 9.59703103024,
+    	                    9.62757986516, 10.1816981174, 9.65703773168, 10.3905666599,
+    	                    10.0941977598, 9.93515274393, 9.71017053437, 10.0303874259,
+    	                    10.0173504397, 9.69022731474, 9.73902896102, 9.52524419732,
+    	                    10.3270730526, 9.54695650657, 10.3573960542, 9.88773266876,
+    	                    10.1685038683, 10.1683694089, 9.88406620159, 10.3290065898,
+    	                    10.2547227265, 10.4733422906, 10.0133952458, 10.4205693583,
+    	                    9.71335255372, 9.89061396699, 10.1652744131, 10.2580948608,
+    	                    10.3465431058, 9.98446410493, 9.79376005657, 10.202518901,
+    	                    9.83867150985, 9.89532986869, 10.2885062658, 9.97748768804,
+    	                    10.0403923759, 10.1538911808, 9.78303667556, 9.72420149909,
+    	                    9.59117495073, 10.1716116012, 10.2015818969, 9.90650056596,
+    	                    10.3251329834, 10.4550120431, 10.4925749165, 10.1548177178,
+    	                    9.60547133785, 10.4644672766, 10.2326496615, 10.2279703226,
+    	                    10.3535284606, 10.2437410625, 10.3851531317, 9.90784804928,
+    	                    9.98208344925, 9.52778805729, 9.69323876912, 9.92987312087,
+    	                    9.73938925207, 9.60543743477, 9.79600805462, 10.4950988486,
+    	                    10.2814361401, 9.7985283333, 9.6287888922, 10.4491538991,
+    	                    9.5799256668};
+
+
+  int size = sizeof(TEST_ARRAY) / sizeof(TEST_ARRAY[0]);
+
+
+  kalman_state ASM_state;
+  ASM_state.q = 0.1;
+  ASM_state.r = 0.1;
+  ASM_state.p = 0.1;
+  ASM_state.x = 5.0;
+  ASM_state.k = 0.0;
+  float asm_output[size];
+  initialize_output(asm_output, size);
+
+  kalman_state C_state;
+  C_state.q = 0.1;
+  C_state.r = 0.1;
+  C_state.p = 0.1;
+  C_state.x = 5.0;
+  C_state.k = 0.0;
+  float c_output[size];
+  initialize_output(c_output, size);
+
+
+
+  kalman_state CMSIS_state;
+  CMSIS_state.q = 0.1;
+  CMSIS_state.r = 0.1;
+  CMSIS_state.p = 0.1;
+  CMSIS_state.x = 5.0;
+  CMSIS_state.k = 0.0;
+  float cmsis_output[size];
+  initialize_output(cmsis_output, size);
+
+
+
+  float input[] = {0,1,2,3,4};
+
+
+
+
+
+  	float asm_average;
+  	float asm_stdDev;
+  	float asm_diffArray[size];
+
+	float c_average;
+  	float c_stdDev;
+  	float c_diffArray[size];
+
+
+	float cmsis_average;
+  	float cmsis_stdDev;
+  	float cmsis_diffArray[size];
+
+
+  	kalman_state testState;
+  	testState.q = 0.0;
+  	testState.r = 0.0;
+  	testState.p = 0.0;
+  	testState.x = 5.0;
+  	testState.k = 0.0;
+
+  	kalmanfilter_ASM(TEST_ARRAY , asm_output, &ASM_state, size);
+  	Kalmanfilter_C(TEST_ARRAY, c_output, &C_state, size);
+  	Kalmanfilter_DSP(TEST_ARRAY, cmsis_output, &CMSIS_state, size);
+
+
+
+//Calculating tracking difference
+  	calculateDifference(TEST_ARRAY, asm_output, asm_diffArray, size);
+	calculateDifference(TEST_ARRAY, c_output, c_diffArray, size);
+	calculateDifference(TEST_ARRAY, cmsis_output, cmsis_diffArray, size);
+
+
+//Calculating average and std deviation
+  	calculateStats(asm_diffArray, size, &asm_average, &asm_stdDev);
+  	calculateStats(c_diffArray, size, &c_average, &c_stdDev);
+  	calculateStats(cmsis_diffArray, size, &cmsis_average, &cmsis_stdDev);
+
+
+//Calculating correlation
+  	float asm_correlation = calculateCorrelation(TEST_ARRAY, asm_output, size);
+  	float c_correlation = calculateCorrelation(TEST_ARRAY, c_output, size);
+  	float cmsis_correlation = calculateCorrelation(TEST_ARRAY, cmsis_output, size);
+
+
+//Calculating convolution
+
+  	float asm_convolution_vector[size];
+  	float c_convolution_vector[size];
+  	float cmsis_convolution_vector[size];
+
+  	convolution(TEST_ARRAY, asm_output, size, asm_convolution_vector);
+  	convolution(TEST_ARRAY, c_output, size, c_convolution_vector);
+  	convolution(TEST_ARRAY, cmsis_output, size, cmsis_convolution_vector);
 
   /* USER CODE END 2 */
 
@@ -354,17 +378,9 @@ int main(void)
   while (1)
   {
 
-
-
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-
-
-
-
 
   }
   /* USER CODE END 3 */
