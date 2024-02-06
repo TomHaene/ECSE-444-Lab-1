@@ -152,14 +152,61 @@ int Kalmanfilter_C(float* InputArray, float* OutputArray, kalman_state* kstate, 
 
 
 
-int kalmanfilter_CMSIS_DSP(){
+// CMSIS DSP implementation.
+int Kalmanfilter_DSP(float *InputArray, float *OutputArray, kalman_state *kstate, int Length)
+{
+  // Guard against null pointers.
+  if (InputArray == NULL || OutputArray == NULL || kstate == NULL || Length <= 0)
+  {
+    return -1;
+  }
+
+  for (int i = 0; i < Length; i++)
+  {
+    // Use single-element arrays to hold scalar values
+    float32_t p_array[1] = {kstate->p};
+    float32_t q_array[1] = {kstate->q};
+    float32_t r_array[1] = {kstate->r};
+    float32_t result[1];
+
+    // p = p + q (scalar addition using single-element arrays)
+    p_array[0] = kstate->p;
+    q_array[0] = kstate->q;
+    r_array[0] = kstate->r;
+    arm_add_f32(p_array, q_array, result, 1);
+    kstate->p = result[0]; // Update p with the result
+
+    // TODO? k = p / (p + r), since no division in CMSIS-DSP
+    kstate->k = kstate->p / (kstate->p + kstate->r);
+
+    // Calculate x = x + k * (InputArray[i] - x) using CMSIS-DSP
+    float32_t input_minus_x_array[1] = {InputArray[i] - kstate->x};
+    float32_t k_array[1] = {kstate->k};
+
+    p_array[0] = kstate->p;
+    q_array[0] = kstate->q;
+    r_array[0] = kstate->r;
+    arm_mult_f32(k_array, input_minus_x_array, result, 1); // k * (input - x)
+    kstate->x += result[0];                                // Update x with the result
+
+    // Update error covariance: p = (1 - k) * p using CMSIS-DSP
+    float32_t one_minus_k_array[1] = {1.0f - kstate->k};
+    p_array[0] = kstate->p;
+    q_array[0] = kstate->q;
+    r_array[0] = kstate->r;
+    arm_mult_f32(one_minus_k_array, p_array, result, 1); // (1 - k) * p
+    kstate->p = result[0];                               // Update p with the result
+
+    // Store the updated estimate in the output array
+    OutputArray[i] = kstate->x;
 
 
+  }
 
-
-
-	return 0;
+  // Success.
+  return 0;
 }
+
 
 
 
@@ -267,12 +314,13 @@ int main(void)
 	testState.k = 0.0;
 
 	//kalmanfilter_ASM(input, output, &myState, 5);
+	Kalmanfilter_DSP(input, output, &myState, 5);
 
 
 	//calculateDifference(input, output, diffArray, 5);
 
 
-	Kalmanfilter_C(input, output, &testState, 5);
+	//Kalmanfilter_C(input, output, &testState, 5);
 
 	//kalmanfilter_ASM(input, output, &testState, 5);
 
