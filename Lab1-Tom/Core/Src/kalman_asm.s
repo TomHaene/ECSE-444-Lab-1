@@ -36,24 +36,9 @@ VMUL.F32 S4, S9, S4 @ (1 - k) * p
 
 
 VMRS R3, FPSCR
-@Relevant bits:
-@bits 31 - 28, bits 4 - 0
-@So check if these relevant bits are 1. If they are an error occured and result is invalid
-@Creating a bit mask to check this bits:
-//LDR R4, =0xF000001F
-//AND R4, R3, R4
-//CMP R4, #0 @
-@If these are not equal it means something went wrong:
 
 
-@Check bit 0 for IOC flag.
-@IOC flag tells you if you have Invalid operations:
-//mathematically indeterminate forms like 0/0, square root of a negative number,
-//infinity minus infinity, etc.
-@Also check
-
-
-LDR R4, =0x0000000F
+LDR R4, =0x0000000F //Checking last four bits
 AND R4, R3, R4
 CMP R4, #0
 //If R4 is more than 0 it means at least one of the flags is 1

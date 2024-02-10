@@ -1,4 +1,9 @@
-../Core/Src/analysis.c:2:6:calculateDifference	32	static
-../Core/Src/analysis.c:9:6:calculateStats	40	static
-../Core/Src/analysis.c:29:7:calculateCorrelation	64	static
-../Core/Src/analysis.c:55:6:convolution	40	static
+../Core/Src/analysis.c:4:6:calculateDifference	32	static
+../Core/Src/analysis.c:11:6:calculateStats	40	static
+../Core/Src/analysis.c:31:7:calculateCorrelation	64	static
+../Core/Src/analysis.c:57:6:convolution	40	static
+../Core/Src/analysis.c:75:6:compute_error_dsp	24	static
+../Core/Src/analysis.c:80:7:compute_mean_dsp	24	static
+../Core/Src/analysis.c:88:7:compute_stddev_dsp	40	static
+../Core/Src/analysis.c:102:7:compute_correlation_dsp	72	static
+../Core/Src/analysis.c:136:6:compute_convolution_dsp	40	static

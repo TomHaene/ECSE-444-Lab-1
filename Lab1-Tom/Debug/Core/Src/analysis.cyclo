@@ -1,4 +1,9 @@
-analysis.c:2:6:calculateDifference	2
-analysis.c:9:6:calculateStats	3
-analysis.c:29:7:calculateCorrelation	2
-analysis.c:55:6:convolution	4
+analysis.c:4:6:calculateDifference	2
+analysis.c:11:6:calculateStats	3
+analysis.c:31:7:calculateCorrelation	2
+analysis.c:57:6:convolution	4
+analysis.c:75:6:compute_error_dsp	1
+analysis.c:80:7:compute_mean_dsp	1
+analysis.c:88:7:compute_stddev_dsp	3
+analysis.c:102:7:compute_correlation_dsp	4
+analysis.c:136:6:compute_convolution_dsp	2

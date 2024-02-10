@@ -1,10 +1,9 @@
 core_cm4.h:2059:26:ITM_SendChar	4
-main.c:84:5:kalmanfilter_ASM	3
-main.c:98:5:kalmanfilter_C	1
+main.c:95:5:kalmanfilter_ASM	3
 main.c:111:5:Kalmanfilter_C	8
-main.c:158:5:Kalmanfilter_DSP	6
-main.c:213:6:initialize_output	2
-main.c:225:5:main	1
-main.c:394:6:SystemClock_Config	4
-main.c:442:5:_write	2
-main.c:463:6:Error_Handler	1
+main.c:152:5:Kalmanfilter_DSP	8
+main.c:227:6:initialize_output	2
+main.c:239:5:main	1
+main.c:481:6:SystemClock_Config	4
+main.c:529:5:_write	2
+main.c:550:6:Error_Handler	1

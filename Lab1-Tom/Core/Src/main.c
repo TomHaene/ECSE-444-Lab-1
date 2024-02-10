@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "arm_math.h"
+#define ITM_Port32(n) (*((volatile unsigned long *) (0xE0000000+4*n)))
 
 /* USER CODE END Includes */
 
@@ -72,7 +73,17 @@ extern int kalmanfilter_single_asm(int *ptr, float measurement); //The ASM subro
 extern void calculateDifference(float* inputArray, float* outputArray, float* differenceArray, int size);
 extern void calculateStats(const float* differenceArray, int size, float *average, float *stdDev);
 extern float calculateCorrelation(const float* x, const float* y, int size);
-void convolution(const float* x, const float* h, int N, float result[]);
+extern void convolution(const float* x, const float* h, int N, float result[]);
+
+
+
+extern void compute_error_dsp(float *reference_lst, float *tracked_lst, float *error, size_t length);
+extern float compute_mean_dsp(float *array, size_t length);
+float compute_stddev_dsp(float *array, size_t length, int is_sample);
+float compute_correlation_dsp(float *x, float *y, int size);
+void compute_convolution_dsp(const float *x, int N, const float *h, int M, float *result);
+
+
 
 
 /* USER CODE BEGIN PFP */
@@ -95,18 +106,7 @@ int kalmanfilter_ASM(float* inputArray, float* outputArray, kalman_state* myStat
 }
 
 
-int kalmanfilter_C(){
 
-
-
-
-
-	return 0;
-}
-
-
-
-//--------------------------------old------------
 
 int Kalmanfilter_C(float* InputArray, float* OutputArray, kalman_state* kstate, int Length){
 	//Since I have the pointer to the struct I need to use the arrow operator to get fields
@@ -114,15 +114,13 @@ int Kalmanfilter_C(float* InputArray, float* OutputArray, kalman_state* kstate, 
 		  if (InputArray == NULL || OutputArray == NULL || kstate == NULL || Length <= 0){
 		    return -1;
 		  }
-		  uint32_t fpscrValueOld;
-		  uint32_t fpscrValueNew;
+
+		  uint32_t fpscrValue;
 		  uint32_t bitmask = 0x0000000F;
 		  uint32_t resetBitmask = 0xFFFFFFE0;
 		  uint32_t result;
 
 		  for (int i = 0; i < Length; i++){
-			fpscrValueOld = __get_FPSCR();
-
 
 		    kstate->p = kstate->p + kstate->q;
 		    kstate->k = kstate->p / (kstate->p + kstate->r);
@@ -131,8 +129,8 @@ int Kalmanfilter_C(float* InputArray, float* OutputArray, kalman_state* kstate, 
 		    OutputArray[i] = kstate->x;
 
 
-			fpscrValueNew = __get_FPSCR();
-		    result = fpscrValueNew & bitmask;
+			fpscrValue = __get_FPSCR();
+		    result = fpscrValue & bitmask;
 
 		    //Check if the result is non-zero
 		    //I also allow bit 4 to be set because that can happen in C but doesn't mean there was
@@ -141,28 +139,25 @@ int Kalmanfilter_C(float* InputArray, float* OutputArray, kalman_state* kstate, 
 
 		    	return 1;
 		    }
-
 		  }
 		  //After each iteration, set the relevant bits of the FPSCR to zero
-		  result = fpscrValueNew & resetBitmask;
+		  result = fpscrValue & resetBitmask;
 		  __set_FPSCR(result);
 		  return 0;
-
 	}
 
 
-//--------------------------------old------------
-
 
 // CMSIS DSP implementation.
-int Kalmanfilter_DSP(float *InputArray, float *OutputArray, kalman_state *kstate, int Length)
-{
+int Kalmanfilter_DSP(float *InputArray, float *OutputArray, kalman_state *kstate, int Length){
   // Guard against null pointers.
-  if (InputArray == NULL || OutputArray == NULL || kstate == NULL || Length <= 0)
-  {
+  if (InputArray == NULL || OutputArray == NULL || kstate == NULL || Length <= 0){
     return -1;
   }
-
+  uint32_t fpscrValue;
+  uint32_t bitmask = 0x0000000F;
+  uint32_t resetBitmask = 0xFFFFFFE0;
+  uint32_t fpscr_result;
   for (int i = 0; i < Length; i++)
   {
     // Use single-element arrays to hold scalar values
@@ -170,7 +165,6 @@ int Kalmanfilter_DSP(float *InputArray, float *OutputArray, kalman_state *kstate
     float32_t q_array[1] = {kstate->q};
     float32_t r_array[1] = {kstate->r};
     float32_t result[1];
-
     // p = p + q (scalar addition using single-element arrays)
     p_array[0] = kstate->p;
     q_array[0] = kstate->q;
@@ -198,13 +192,20 @@ int Kalmanfilter_DSP(float *InputArray, float *OutputArray, kalman_state *kstate
     r_array[0] = kstate->r;
     arm_mult_f32(one_minus_k_array, p_array, result, 1); // (1 - k) * p
     kstate->p = result[0];                               // Update p with the result
-
     // Store the updated estimate in the output array
     OutputArray[i] = kstate->x;
+    fpscrValue = __get_FPSCR();
+    fpscr_result = fpscrValue & bitmask;
 
-
+    //Check if the result is non-zero
+    //I also allow bit 4 to be set because that can happen in C but doesn't mean there was
+    //a exception
+    if (fpscr_result != 0 && fpscr_result != 16) {
+    	return 1;
+    }
   }
-
+  fpscr_result = fpscrValue & resetBitmask;
+ __set_FPSCR(fpscr_result);
   // Success.
   return 0;
 }
@@ -248,6 +249,7 @@ int main(void)
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
 
+  /*
   float TEST_ARRAY[] = {10.4915760032, 10.1349974709, 9.53992591829, 9.60311878706,
     	                    10.4858891793, 10.1104642352, 9.51066931906, 9.75755656493,
     	                    9.82154078273, 10.2906541933, 10.4861328671, 9.57321181356,
@@ -274,8 +276,12 @@ int main(void)
     	                    9.73938925207, 9.60543743477, 9.79600805462, 10.4950988486,
     	                    10.2814361401, 9.7985283333, 9.6287888922, 10.4491538991,
     	                    9.5799256668};
+*/
+
+  //int size = sizeof(TEST_ARRAY) / sizeof(TEST_ARRAY[0]);
 
 
+  float TEST_ARRAY[] = {0,2,3,5,4,5,6,4,5,4,5,5,5};
   int size = sizeof(TEST_ARRAY) / sizeof(TEST_ARRAY[0]);
 
 
@@ -298,7 +304,6 @@ int main(void)
   initialize_output(c_output, size);
 
 
-
   kalman_state CMSIS_state;
   CMSIS_state.q = 0.1;
   CMSIS_state.r = 0.1;
@@ -309,25 +314,18 @@ int main(void)
   initialize_output(cmsis_output, size);
 
 
+  	float asm_average_usingc;
+  	float asm_stdDev_usingc;
+  	float asm_diffArray_usingc[size];
 
-  float input[] = {0,1,2,3,4};
-
-
-
-
-
-  	float asm_average;
-  	float asm_stdDev;
-  	float asm_diffArray[size];
-
-	float c_average;
-  	float c_stdDev;
-  	float c_diffArray[size];
+	float c_average_usingc;
+  	float c_stdDev_usingc;
+  	float c_diffArray_usingc[size];
 
 
-	float cmsis_average;
-  	float cmsis_stdDev;
-  	float cmsis_diffArray[size];
+	float cmsis_average_usingc;
+  	float cmsis_stdDev_usingc;
+  	float cmsis_diffArray_usingc[size];
 
 
   	kalman_state testState;
@@ -337,39 +335,116 @@ int main(void)
   	testState.x = 5.0;
   	testState.k = 0.0;
 
+  	ITM_Port32(31) = 1;
   	kalmanfilter_ASM(TEST_ARRAY , asm_output, &ASM_state, size);
+  	ITM_Port32(31) = 2;
+
+  	//ASM run time: 3.214200ms - 3.097717ms = 0.116483ms
+
+  	ITM_Port32(31) = 3;
   	Kalmanfilter_C(TEST_ARRAY, c_output, &C_state, size);
+  	ITM_Port32(31) = 4;
+
+  	//C run time: 3.334383ms - 3.214300ms = 0.120083ms
+
+  	ITM_Port32(31) = 5;
   	Kalmanfilter_DSP(TEST_ARRAY, cmsis_output, &CMSIS_state, size);
+  	ITM_Port32(31) = 6;
+
+  	//CMSIS run time: 3.576242ms - 3.334483ms = 0.241759ms
 
 
 
-//Calculating tracking difference
-  	calculateDifference(TEST_ARRAY, asm_output, asm_diffArray, size);
-	calculateDifference(TEST_ARRAY, c_output, c_diffArray, size);
-	calculateDifference(TEST_ARRAY, cmsis_output, cmsis_diffArray, size);
+//Doing analysis using plain C--------------------------------(Below)
+
+//Calculating tracking difference using plain C stats function
+  	calculateDifference(TEST_ARRAY, asm_output, asm_diffArray_usingc, size);
+	calculateDifference(TEST_ARRAY, c_output, c_diffArray_usingc, size);
+	calculateDifference(TEST_ARRAY, cmsis_output, cmsis_diffArray_usingc, size);
 
 
-//Calculating average and std deviation
-  	calculateStats(asm_diffArray, size, &asm_average, &asm_stdDev);
-  	calculateStats(c_diffArray, size, &c_average, &c_stdDev);
-  	calculateStats(cmsis_diffArray, size, &cmsis_average, &cmsis_stdDev);
+//Calculating average and std deviation using plain C stats function
+  	calculateStats(asm_diffArray_usingc, size, &asm_average_usingc, &asm_stdDev_usingc);
+  	calculateStats(c_diffArray_usingc, size, &c_average_usingc, &c_stdDev_usingc);
+  	calculateStats(cmsis_diffArray_usingc, size, &cmsis_average_usingc, &cmsis_stdDev_usingc);
 
 
-//Calculating correlation
-  	float asm_correlation = calculateCorrelation(TEST_ARRAY, asm_output, size);
-  	float c_correlation = calculateCorrelation(TEST_ARRAY, c_output, size);
-  	float cmsis_correlation = calculateCorrelation(TEST_ARRAY, cmsis_output, size);
+//Calculating correlation using plain C stats function
+  	float asm_correlation_usingc = calculateCorrelation(TEST_ARRAY, asm_output, size);
+  	float c_correlation_usingc = calculateCorrelation(TEST_ARRAY, c_output, size);
+  	float cmsis_correlation_usingc = calculateCorrelation(TEST_ARRAY, cmsis_output, size);
 
 
-//Calculating convolution
+//Calculating convolution using plain C stats function
 
-  	float asm_convolution_vector[size];
-  	float c_convolution_vector[size];
-  	float cmsis_convolution_vector[size];
+  	float asm_convolution_vector[(2* size) -1];
+  	float c_convolution_vector[(2* size) -1];
+  	float cmsis_convolution_vector[(2* size) -1];
 
   	convolution(TEST_ARRAY, asm_output, size, asm_convolution_vector);
   	convolution(TEST_ARRAY, c_output, size, c_convolution_vector);
   	convolution(TEST_ARRAY, cmsis_output, size, cmsis_convolution_vector);
+
+//Doing analysis using plain C--------------------------------(Above)
+
+//Doing analysis using CMSIS-DSP--------------------------------(Below)
+
+
+
+
+  	float asm_average_usingcmsis;
+  	float asm_stdDev_usingcmsis;
+  	float asm_diffArray_usingcmsis[size];
+  	float asm_convolution_vector_usingcmsis[(2*size) -1];
+
+
+  	float c_average_usingcmsis;
+  	float c_stdDev_usingcmsis;
+  	float c_diffArray_usingcmsis[size];
+	float c_convolution_vector_usingcmsis[(2*size) - 1];
+
+
+
+  	float cmsis_average_usingcmsis;
+  	float cmsis_stdDev_usingcmsis;
+  	float cmsis_diffArray_usingcmsis[size];
+	float cmsis_convolution_vector_usingcmsis[(2*size)- 1];
+
+
+
+  	//Calculating tracking difference using CMSIS stats function
+  	compute_error_dsp(TEST_ARRAY, asm_output, asm_diffArray_usingcmsis, size);
+	compute_error_dsp(TEST_ARRAY, c_output, c_diffArray_usingcmsis, size);
+	compute_error_dsp(TEST_ARRAY, cmsis_output, cmsis_diffArray_usingcmsis, size);
+
+
+	//Calculating average using CMSIS stats function
+	asm_average_usingcmsis = compute_mean_dsp(asm_diffArray_usingcmsis, size);
+	c_average_usingcmsis = compute_mean_dsp(c_diffArray_usingcmsis, size);
+	cmsis_average_usingcmsis = compute_mean_dsp(cmsis_diffArray_usingcmsis, size);
+
+	//Calculating std dev using CMSIS stats function
+	asm_stdDev_usingcmsis = compute_stddev_dsp(asm_diffArray_usingcmsis, size, 0 );
+	c_stdDev_usingcmsis = compute_stddev_dsp(c_diffArray_usingcmsis, size, 0 );
+	cmsis_stdDev_usingcmsis = compute_stddev_dsp(cmsis_diffArray_usingcmsis, size, 0 );
+
+	//Calculating correlation using CMSIS stats function
+	float asm_correlation = compute_correlation_dsp(TEST_ARRAY, asm_output, size);
+	float c_correlation= compute_correlation_dsp(TEST_ARRAY, c_output, size);
+	float cmsis_correlation = compute_correlation_dsp(TEST_ARRAY, cmsis_output, size);
+
+
+	//Calculating convolution using CMSIS stats function
+	compute_convolution_dsp(TEST_ARRAY, size,asm_output, size, asm_convolution_vector_usingcmsis);
+	compute_convolution_dsp(TEST_ARRAY, size,c_output, size, c_convolution_vector_usingcmsis);
+	compute_convolution_dsp(TEST_ARRAY, size,cmsis_output, size, cmsis_convolution_vector_usingcmsis);
+
+
+
+
+//Doing analysis using CMSIS-DSP--------------------------------(Above)
+
+
 
   /* USER CODE END 2 */
 
